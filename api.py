@@ -1,65 +1,79 @@
 import flask
+import json
+import sqlite3
 from flask import request, jsonify
 
 app = flask.Flask(__name__)
 app.config["DEBUG"] = True
 
-# data set to use in the api
-# data set also happens to be recipes I have made before and where the ratings are how they came out, tasted and based on user feedback
-recipes = [
-    {
-        'id': 0,
-        'name': 'Oatmeal raisin cookies',
-        'rating': '5.0'
-    },
-    {
-        'id': 1,
-        'name': 'Brownies',
-        'rating': '3.0'
-    },
-    {
-        'id': 2,
-        'name': 'M&M cookies',
-        'rating': '3.5'
-    },
-    {
-        'id': 3,
-        'name': 'Plain sponge cake',
-        'rating': '4.0'
-    },
-    {
-        'id': 4,
-        'name': 'Chocolcate chip cookies',
-        'rating': '2.0'
-    }
-]
+with open("recipes.json") as file:
+    recipes = json.load(file)
 
-# maps url path '/' to the function home and performs a get request to return the contents in the <h1> tag
-@app.route('/', methods = ['GET'])
+
+def dict_factory(cursor, row):
+    d = {}
+    for index, column in enumerate(cursor.description):
+        d[column[0]] = row[index]
+    return d
+
+
+@app.route('/', methods=['GET'])
 def home():
-    return "<h1>Hello World</h1>"
+    return '''<h1>Desert Recipes Attempted</h1>
+    <p>An API of my attempted desert recipes and their outcomes.</p>'''
 
-# maps url path below to the function to return json of the dataset
-@app.route('/api/v1/resources/recipes/all', methods = ['GET'])
+
+@app.route('/api/v1/resources/recipes/all', methods=['GET'])
 def api_all():
-    return jsonify(recipes)
+    conn = sqlite3.connect('recipes.db')
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+    all_recipes = cur.execute('SELECT * FROM recipes;').fetchall()
 
-# returns json object of the specified id/s in a query of type ...recipes?id=xxx
-@app.route('/api/v1/resources/recipes', methods = ['GET'])
-def api_id():
-    if 'id' in request.args:
-        id = int(request.args['id'])
-    else:
-        return "Error: No id specified"
-    
-    results = []
+    return jsonify(all_recipes)
 
-    for recipe in recipes:
-        if recipe['id'] == id:
-            results.append(recipe)
-        
+
+@app.errorhandler(404)
+def page_not_found(e):
+    return '<h1>404</h1><br><p>The resource could not been found.</p>', 404
+
+
+@app.route('/api/v1/resources/recipes', methods=['GET'])
+def api_filter():
+    query_parameters = request.args
+
+    id = query_parameters.get('id')
+    name = query_parameters.get('name')
+    difficulty = query_parameters.get('difficulty')
+    outcome = query_parameters.get('outcome')
+
+    query = 'SELECT * FROM recipes WHERE'
+    to_filter = []
+
+    if id:
+        query += ' ID=? AND'
+        to_filter.append(id)
+    if name:
+        query += ' NAME=? AND'
+        to_filter.append(name)
+    if difficulty:
+        query += ' DIFFICULTY=? AND'
+        to_filter.append(difficulty)
+    if outcome:
+        query += ' OUTCOME=? AND'
+        to_filter.append(outcome)
+    if not (id or name or difficulty or outcome):
+        return page_not_found(404)
+
+    query = query[:-4] + ';'
+
+    conn = sqlite3.connect('recipes.db')
+    conn.row_factory = dict_factory
+    cur = conn.cursor()
+
+    results = cur.execute(query, to_filter).fetchall()
+
     return jsonify(results)
 
-# FURTHER ROUTES TO BE ADDED
 
 app.run()

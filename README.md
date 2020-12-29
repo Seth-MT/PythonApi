@@ -1,4 +1,3 @@
-# Project Description
+# Python API Building 
 
-## PythonApi
-An API creation project using python
+An API building project using Python and Flask.
