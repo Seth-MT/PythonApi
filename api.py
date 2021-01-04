@@ -11,6 +11,17 @@ with open("recipes.json") as file:
 
 
 def dict_factory(cursor, row):
+    """
+    Convert to dictionary
+
+    Paramaters:
+        cursor (Object): Cursor object in sqlite3 used to execute SQL statements
+        row (Array): Row/record in the database table
+
+    Returns:
+        d: A dictionary format of the table row
+    """
+    
     d = {}
     for index, column in enumerate(cursor.description):
         d[column[0]] = row[index]
